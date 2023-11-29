@@ -88,14 +88,59 @@ bishop_black = pygame.transform.scale(bishop_black, (80, 100))
 rook_black = pygame.image.load("black_tower.png")
 rook_black = pygame.transform.scale(rook_black, (80, 100))
 
-king = King(king_black, dif*4+50,50)
-pawn = Pawn(pawn_black, dif*4+50, dif+50)
-queen = Queen(queen_black, dif*3+50, 50)
-knight = Knight(knight_black, dif*2+50, 50)
-rook = Rook(rook_black, 50, 50)
-bishop = Bishop(bishop_black, dif+50, 50)
+king_white = pygame.image.load("white_king.png")
+king_white = pygame.transform.scale(king_white, (80, 100))
+pawn_white = pygame.image.load("white_pawn.png")
+pawn_white = pygame.transform.scale(pawn_white, (60,90))
+queen_white = pygame.image.load("white_queen.png")
+queen_white = pygame.transform.scale(queen_white, (80, 100))
+knight_white = pygame.image.load("white_knight.png")
+knight_white = pygame.transform.scale(knight_white, (80, 100))
+bishop_white = pygame.image.load("white_bishop.png")
+bishop_white = pygame.transform.scale(bishop_white, (80, 100))
+rook_white = pygame.image.load("white_rook.png")
+rook_white = pygame.transform.scale(rook_white, (80, 100))
 
-chess_pieces = [king, pawn, queen, knight, rook, bishop]
+
+b_king = King(king_black, dif*4+50,50)
+b_queen = Queen(queen_black, dif*3+50, 50)
+b_knight = Knight(knight_black, dif*2+50, 50)
+b_rook = Rook(rook_black, 50, 50)
+b_bishop = Bishop(bishop_black, dif+50, 50)
+b_knight2 = Knight(knight_black, dif*5+50, 50)
+b_bishop2 = Bishop(bishop_black, dif*6+50, 50)
+b_rook2 = Rook(rook_black, dif*7+50, 50)
+b_pawn = Pawn(pawn_black, 50, dif+50)
+b_pawn2 = Pawn(pawn_black, dif+50, dif+50)
+b_pawn3 = Pawn(pawn_black, dif*2+50, dif+50)
+b_pawn4 = Pawn(pawn_black, dif*3+50, dif+50)
+b_pawn5 = Pawn(pawn_black, dif*4+50, dif+50)
+b_pawn6 = Pawn(pawn_black, dif*5+50, dif+50)
+b_pawn7 = Pawn(pawn_black, dif*6+50, dif+50)
+b_pawn8 = Pawn(pawn_black, dif*7+50, dif+50)
+b_pawn9 = Pawn(pawn_black, dif*8+50, dif+50)
+
+w_king = King(king_white, dif*4+50,dif*7+50)
+w_queen = Queen(queen_white, dif*3+50, dif*7+50)
+w_knight = Knight(knight_white, dif*2+50, dif*7+50)
+w_rook = Rook(rook_white, 50, dif*7+50)
+w_bishop = Bishop(bishop_white, dif+50, dif*7+50)
+w_knight2 = Knight(knight_white, dif*5+50, dif*7+50)
+w_bishop2 = Bishop(bishop_white, dif*6+50, dif*7+50)
+w_rook2 = Rook(rook_white, dif*7+50, dif*7+50)
+w_pawn = Pawn(pawn_white, 50, dif*6+50)
+w_pawn2 = Pawn(pawn_white, dif+50, dif*6+50)
+w_pawn3 = Pawn(pawn_white, dif*2+50, dif*6+50)
+w_pawn4 = Pawn(pawn_white, dif*3+50, dif*6+50)
+w_pawn5 = Pawn(pawn_white, dif*4+50, dif*6+50)
+w_pawn6 = Pawn(pawn_white, dif*5+50, dif*6+50)
+w_pawn7 = Pawn(pawn_white, dif*6+50, dif*6+50)
+w_pawn8 = Pawn(pawn_white, dif*7+50, dif*6+50)
+w_pawn9 = Pawn(pawn_white, dif*8+50, dif*6+50)
+
+
+chess_pieces = [b_king, b_queen, b_knight, b_rook, b_bishop, b_knight2, b_bishop2, b_rook2, b_pawn, b_pawn2, 
+                b_pawn3, b_pawn4, b_pawn5, b_pawn6,b_pawn7,b_pawn8,w_king, w_bishop,w_bishop2,w_knight,w_knight2, w_queen, w_rook, w_rook2, w_pawn,w_pawn2,w_pawn3,w_pawn4,w_pawn5,w_pawn6,w_pawn7,w_pawn8,w_pawn9]
 
 currently_clicked = None 
 
@@ -132,6 +177,8 @@ while True:
     draw_board()
     for piece in chess_pieces:
         piece.draw()
+    if currently_clicked:
+        currently_clicked.draw()
     
     
     
