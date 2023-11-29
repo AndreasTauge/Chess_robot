@@ -75,29 +75,31 @@ def draw_board():
 
 # gjør det du har gjort med de hvite brikkene, bytt navn på objektene under til fargen deres
 # GJØR SÅNN AT BRIKKENE "SNAPPER" PÅ PLASS NÅR DU FLYTTER DE 
-king_black = pygame.image.load("C:\\Users\\Andreas\\OneDrive - NTNU\\Desktop\\chess\\black_king.png")
+king_black = pygame.image.load("black_king.png")
 king_black = pygame.transform.scale(king_black, (80, 100))
-pawn_black = pygame.image.load("C:\\Users\\Andreas\\OneDrive - NTNU\\Desktop\\chess\\black_pawn.png")
+pawn_black = pygame.image.load("black_pawn.png")
 pawn_black = pygame.transform.scale(pawn_black, (60,90))
-queen_black = pygame.image.load("C:\\Users\\Andreas\\OneDrive - NTNU\\Desktop\\chess\\black_queen.png")
+queen_black = pygame.image.load("black_queen.png")
 queen_black = pygame.transform.scale(queen_black, (80, 100))
-knight_black = pygame.image.load("C:\\Users\\Andreas\\OneDrive - NTNU\\Desktop\\chess\\black_knight.png")
+knight_black = pygame.image.load("black_knight.png")
 knight_black = pygame.transform.scale(knight_black, (80, 100))
-bishop_black = pygame.image.load("C:\\Users\\Andreas\\OneDrive - NTNU\\Desktop\\chess\\black_bishop.png")
+bishop_black = pygame.image.load("black_bishop.png")
 bishop_black = pygame.transform.scale(bishop_black, (80, 100))
-rook_black = pygame.image.load("C:\\Users\\Andreas\\OneDrive - NTNU\\Desktop\\chess\\black_tower.png")
+rook_black = pygame.image.load("black_tower.png")
 rook_black = pygame.transform.scale(rook_black, (80, 100))
 
-pawn = Pawn(pawn_black, dif*4+50, dif+50)
 king = King(king_black, dif*4+50,50)
+pawn = Pawn(pawn_black, dif*4+50, dif+50)
 queen = Queen(queen_black, dif*3+50, 50)
 knight = Knight(knight_black, dif*2+50, 50)
 rook = Rook(rook_black, 50, 50)
 bishop = Bishop(bishop_black, dif+50, 50)
 
-chess_pieces = [pawn, king, queen, knight, rook, bishop]
+chess_pieces = [king, pawn, queen, knight, rook, bishop]
 
 currently_clicked = None 
+
+
 
 while True:
     for event in pygame.event.get():
@@ -111,11 +113,14 @@ while True:
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
-                for square in squares:
-                    if square.colliderect(currently_clicked_center_rect):
-                        currently_clicked.update_position((square.x+50, square.y+50))
-                        break
-                currently_clicked = None
+                if currently_clicked:
+                    currently_clicked_center_rect = currently_clicked.get_center_rect()
+                    for square in squares:
+                        if square.colliderect(currently_clicked_center_rect):
+                            currently_clicked.update_position((square.x+50, square.y+50))
+                            break
+                    currently_clicked = None
+                    currently_clicked_center_rect = None
         
         elif event.type == pygame.MOUSEMOTION:
             if currently_clicked:
