@@ -16,7 +16,9 @@ class Pawn():
         self.image = image
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
+        self.square = (x//100, y//100)
         self.dragging = False
+       
     
     def draw(self):
         image_pos = self.image.get_rect(center = self.rect.center)
@@ -24,6 +26,8 @@ class Pawn():
     
     def update_position(self, pos):
         self.rect.center = pos 
+        self.square = (x//100, y//100)
+        
     
     def get_center_rect(self):
         # Create a smaller Rect around the center
@@ -31,6 +35,10 @@ class Pawn():
         center_rect = pygame.Rect(0, 0, center_rect_size, center_rect_size)
         center_rect.center = self.rect.center
         return center_rect
+
+    def valid_move(self, square):
+        if (square.x//100, square.y//100+1) == (x//100, (y//100)+1):
+            return True
 
 class King(Pawn):
     def __init__(self, image, x, y):
@@ -73,8 +81,6 @@ def draw_board():
             y += 1
 
 
-# gjør det du har gjort med de hvite brikkene, bytt navn på objektene under til fargen deres
-# GJØR SÅNN AT BRIKKENE "SNAPPER" PÅ PLASS NÅR DU FLYTTER DE 
 king_black = pygame.image.load("black_king.png")
 king_black = pygame.transform.scale(king_black, (80, 100))
 pawn_black = pygame.image.load("black_pawn.png")
@@ -142,6 +148,11 @@ w_pawn9 = Pawn(pawn_white, dif*8+50, dif*6+50)
 chess_pieces = [b_king, b_queen, b_knight, b_rook, b_bishop, b_knight2, b_bishop2, b_rook2, b_pawn, b_pawn2, 
                 b_pawn3, b_pawn4, b_pawn5, b_pawn6,b_pawn7,b_pawn8,w_king, w_bishop,w_bishop2,w_knight,w_knight2, w_queen, w_rook, w_rook2, w_pawn,w_pawn2,w_pawn3,w_pawn4,w_pawn5,w_pawn6,w_pawn7,w_pawn8,w_pawn9]
 
+
+sjakkbrett = [['' for _ in range(8)] for _ in range(8)]
+for x in chess_pieces:
+    sjakkbrett.append((x, x.rect.center))
+
 currently_clicked = None 
 
 
@@ -155,15 +166,18 @@ while True:
                 for piece in chess_pieces: 
                     if piece.rect.collidepoint(event.pos):
                         currently_clicked = piece
+                        currently_clicked_start_pos = piece.rect.center
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
                 if currently_clicked:
                     currently_clicked_center_rect = currently_clicked.get_center_rect()
                     for square in squares:
-                        if square.colliderect(currently_clicked_center_rect):
+                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move(square):
                             currently_clicked.update_position((square.x+50, square.y+50))
                             break
+                        else:
+                            currently_clicked.update_position(currently_clicked_start_pos)
                     currently_clicked = None
                     currently_clicked_center_rect = None
         
@@ -172,7 +186,8 @@ while True:
                 x, y = event.pos
                 currently_clicked_center_rect = currently_clicked.get_center_rect()
                 currently_clicked.update_position((x, y))
-                
+            
+    
 
     draw_board()
     for piece in chess_pieces:
