@@ -108,14 +108,121 @@ class King(Pawn):
         super().__init__(image, x, y, color)
     
     def valid_move(self, square):
-        pass #skriv inn kongens regler her 
+        col = self.start_pos[1]
+        row = self.start_pos[0]
+        valid_moves = [(row+1, col), (row-1, col), (row, col-1), (row, col+1), (row+1, col+1), (row+1, col-1), (row-1, col-1), (row-1, col+1)]
+        if square in valid_moves:
+            board[self.start_pos[1]][self.start_pos[0]] = "p"
+            board[square[1]][square[0]] = self
+            remove_pieces(square)
+            self.start_pos = square
+            return True 
+        else:
+            return False 
+
+
 
 class Queen(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
     
     def valid_move(self, square):
-        pass #skriv inn dronningens regler her 
+        valid_moves = []
+        row = self.start_pos[1]
+        col = self.start_pos[0]
+
+        #left horizontal
+        for x in range(col-1, -1, -1):
+            if board[row][x] == "p":
+                valid_moves.append((x, row))
+            elif board[row][x] != "p" and board[row][x].color != self.color:
+                valid_moves.append((x, row))
+                break
+            elif board[row][x] != "p" and board[row][x].color == self.color:
+                break
+
+        #right horizontal 
+        for x in range(col+1, 8, 1):
+            if board[row][x] == "p":
+                valid_moves.append((x, row))
+            elif board[row][x] != "p" and board[row][x].color != self.color:
+                valid_moves.append((x, row))
+                break
+            elif board[row][x] != "p" and board[row][x].color == self.color:
+                break
+        
+        #check vertical up 
+        for x in range(row-1, -1, -1):
+            if board[x][col] == "p":
+                valid_moves.append((col, x))
+            elif board[x][col] != "p" and board[x][col].color != self.color:
+                valid_moves.append((col, x))
+                break
+            elif board[x][col] != "p" and board[x][col].color == self.color:
+                break
+        
+        #vertical down
+        for x in range(row+1, 8, 1):
+            if board[x][col] == "p":
+                valid_moves.append((col, x))
+            elif board[x][col] != "p" and board[x][col].color != self.color:
+                valid_moves.append((col, x))
+                break
+            elif board[x][col] != "p" and board[x][col].color == self.color:
+                break
+
+        #left up diagonal
+        for y, x in enumerate(range(col-1, -1, -1), start = 1):
+            if board[row-y][x] == "p":
+                valid_moves.append((x, row-y))
+            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
+                valid_moves.append((x, row-y))
+                break
+            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
+                break
+
+        #right up diagonal 
+        for y, x in enumerate(range(col+1, 8, 1), start = 1):
+            if board[row-y][x] == "p":
+                valid_moves.append((x, row-y))
+            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
+                valid_moves.append((x, row-y))
+                break
+            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
+                break
+        
+        #left down diagonal 
+        for y, x in enumerate(range(col-1, -1, -1), start = 1):
+            if row+y == 8:
+                break
+            if board[row+y][x] == "p":
+                valid_moves.append((x, row+y))
+            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
+                valid_moves.append((x, row+y))
+                break
+            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
+                break
+        
+        #right down diagonal
+        for y, x in enumerate(range(row+1, 8, 1), start = 1):
+            if col+y == 8:
+                break
+            if board[x][col+y] == "p":
+                valid_moves.append((col+y, x))
+            elif board[x][col+y] != "p" and board[x][col+y].color != self.color:
+                valid_moves.append((col+y, x))
+                break
+            elif board[x][col+y] != "p" and board[x][col+y].color == self.color:
+                break
+        
+        if square in valid_moves:
+            board[self.start_pos[1]][self.start_pos[0]] = "p"
+            board[square[1]][square[0]] = self
+            remove_pieces(square)
+            self.start_pos = square
+            return True 
+        else:
+            return False 
 
 class Knight(Pawn):
     def __init__(self, image, x, y, color):
