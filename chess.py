@@ -120,6 +120,20 @@ class Queen(Pawn):
 class Knight(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+    
+    def valid_move(self, square):
+        col = self.start_pos[1]
+        row = self.start_pos[0]
+        valid_moves = [(row+1, col+2), (row-1, col+2), (row+1, col-2), (row-1, col-2), (row-2, col+1), (row+2, col-1), (row-2, col-1), (row+2, col+1)]
+        if square in valid_moves:
+            board[self.start_pos[1]][self.start_pos[0]] = "p"
+            board[square[1]][square[0]] = self
+            remove_pieces(square)
+            self.start_pos = square
+            return True 
+
+        else:
+            return False 
 
 class Bishop(Pawn):
     def __init__(self, image, x, y, color):
