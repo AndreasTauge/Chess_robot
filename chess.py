@@ -13,10 +13,12 @@ squares_rects = []
 
 board = []
 
-def remove_pieces(board, location):
-    for x in board:
+def remove_pieces(location):
+    for x in chess_pieces:
         if x.start_pos == location:
-            board.remove(x)
+            x_row = x.start_pos[1]
+            x_col = x.start_pos[0]
+            chess_pieces.remove(x)
 
 
 
@@ -92,7 +94,7 @@ class Pawn():
         
         elif self.is_capture(square) and (square == (self.start_pos[0]+1, self.start_pos[1] + direction) or square == (self.start_pos[0]-1, self.start_pos[1] + direction)):
             board[square[1]][square[0]] = self
-            remove_pieces(chess_pieces, square)
+            remove_pieces(square)
             self.start_pos  = square
             return True 
             
@@ -104,10 +106,16 @@ class Pawn():
 class King(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+    
+    def valid_move(self, square):
+        pass #skriv inn kongens regler her 
 
 class Queen(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+    
+    def valid_move(self, square):
+        pass #skriv inn dronningens regler her 
 
 class Knight(Pawn):
     def __init__(self, image, x, y, color):
@@ -120,6 +128,65 @@ class Bishop(Pawn):
 class Rook(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+
+    def valid_move(self, square):
+        valid_moves = []
+        row = self.start_pos[1]
+        col = self.start_pos[0]
+        enemy = False 
+
+        #left horizontal
+        for x in range(col-1, -1, -1):
+            if board[row][x] == "p":
+                valid_moves.append((x, row))
+            elif board[row][x] != "p" and board[row][x].color != self.color:
+                valid_moves.append((x, row))
+                break
+            elif board[row][x] != "p" and board[row][x].color == self.color:
+                break
+
+        #right horizontal 
+        for x in range(col+1, 8, 1):
+            if board[row][x] == "p":
+                valid_moves.append((x, row))
+            elif board[row][x] != "p" and board[row][x].color != self.color:
+                valid_moves.append((x, row))
+                break
+            elif board[row][x] != "p" and board[row][x].color == self.color:
+                break
+        
+        #check vertical up 
+        for x in range(row-1, -1, -1):
+            if board[x][col] == "p":
+                valid_moves.append((col, x))
+            elif board[x][col] != "p" and board[x][col].color != self.color:
+                valid_moves.append((col, x))
+                break
+            elif board[x][col] != "p" and board[x][col].color == self.color:
+                break
+        
+        for x in range(row+1, 8, 1):
+            if board[x][col] == "p":
+                valid_moves.append((col, x))
+            elif board[x][col] != "p" and board[x][col].color != self.color:
+                valid_moves.append((col, x))
+                break
+            elif board[x][col] != "p" and board[x][col].color == self.color:
+                break
+
+        if square in valid_moves:
+            board[self.start_pos[1]][self.start_pos[0]] = "p"
+            board[square[1]][square[0]] = self
+            remove_pieces(square)
+            print("       ")
+            print(board)
+            self.start_pos = square
+            return True 
+        else:
+            return False 
+
+        
+
 
 def draw_board():
     j = 0
@@ -214,6 +281,7 @@ chess_pieces = [b_king, b_queen, b_knight, b_rook, b_bishop, b_knight2, b_bishop
 board = [['p' for _ in range(8)] for _ in range(8)]
 for x in chess_pieces:
     board[x.start_pos[1]][x.start_pos[0]] = x
+print(board)
  
 currently_clicked = None 
 
