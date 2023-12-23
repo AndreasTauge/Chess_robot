@@ -31,6 +31,7 @@ class Pawn():
         self.dragging = False
         self.color = color
         self.start_pos = (int(x//100), int(y//100))
+        self.valid_moves = []
     
     def __repr__(self):
         return f"{self.__class__.__name__}"
@@ -80,6 +81,7 @@ class Pawn():
         else:
             direction = 1
 
+        self.valid_moves = [(self.start_pos[0]+1, self.start_pos[1] + direction), (self.start_pos[0]-1, self.start_pos[1] + direction)]
         if self.first_move() and not (self.is_capture(square)) and square == (self.start_pos[0], self.start_pos[1] + 2 * direction):
                 board[square[1]][square[0]] = self
                 board[self.start_pos[1]][self.start_pos[0]] = "p"
@@ -93,10 +95,35 @@ class Pawn():
                 return True 
         
         elif self.is_capture(square) and (square == (self.start_pos[0]+1, self.start_pos[1] + direction) or square == (self.start_pos[0]-1, self.start_pos[1] + direction)):
+            board[self.start_pos[1]][self.start_pos[0]] = "p"
             board[square[1]][square[0]] = self
             remove_pieces(square)
             self.start_pos  = square
             return True 
+    
+    def check_saved(self, square):
+        original = self.start_pos
+        clone = board.copy()
+        clone[self.start_pos[1]][self.start_pos[0]] = "p"
+        clone[square[1]][square[0]] = self
+        #remove_pieces(square)
+        self.start_pos  = square
+        for piece in chess_pieces:
+            piece.valid_move(piece.start_pos)
+        
+        if self.color == "white":
+            if w_king.check_danger():
+                self.start_pos = original
+                return False
+        
+        elif self.color == "black":
+            if b_king.check_danger():
+                self.start_pos = original
+                return False 
+
+        return True 
+
+        
             
            
 
@@ -106,6 +133,7 @@ class Pawn():
 class King(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+        self.valid_moves = []
     
     def valid_move(self, square):
         col = self.start_pos[1]
@@ -119,12 +147,23 @@ class King(Pawn):
             return True 
         else:
             return False 
+    
+    def check_danger(self):
+        col = self.start_pos[1]
+        row = self.start_pos[0]
+        for piece in chess_pieces:
+            if (row, col) in piece.valid_moves and piece.color != self.color:
+                print("sjakk")
+                return True 
+        
+        return False 
 
 
 
 class Queen(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+        self.valid_moves = []
     
     def valid_move(self, square):
         valid_moves = []
@@ -214,6 +253,7 @@ class Queen(Pawn):
                 break
             elif board[x][col+y] != "p" and board[x][col+y].color == self.color:
                 break
+        self.valid_moves = valid_moves
         
         if square in valid_moves:
             board[self.start_pos[1]][self.start_pos[0]] = "p"
@@ -227,11 +267,13 @@ class Queen(Pawn):
 class Knight(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+        self.valid_moves = []
     
     def valid_move(self, square):
         col = self.start_pos[1]
         row = self.start_pos[0]
         valid_moves = [(row+1, col+2), (row-1, col+2), (row+1, col-2), (row-1, col-2), (row-2, col+1), (row+2, col-1), (row-2, col-1), (row+2, col+1)]
+        self.valid_moves = valid_moves
         if square in valid_moves:
             board[self.start_pos[1]][self.start_pos[0]] = "p"
             board[square[1]][square[0]] = self
@@ -245,6 +287,7 @@ class Knight(Pawn):
 class Bishop(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+        self.valid_moves = []
     
     def valid_move(self, square):
         valid_moves = []
@@ -295,6 +338,7 @@ class Bishop(Pawn):
             elif board[x][col+y] != "p" and board[x][col+y].color == self.color:
                 break
         
+        self.valid_moves = valid_moves
         if square in valid_moves:
             board[self.start_pos[1]][self.start_pos[0]] = "p"
             board[square[1]][square[0]] = self
@@ -308,6 +352,7 @@ class Bishop(Pawn):
 class Rook(Pawn):
     def __init__(self, image, x, y, color):
         super().__init__(image, x, y, color)
+        self.valid_moves = []
 
     def valid_move(self, square):
         valid_moves = []
@@ -354,6 +399,7 @@ class Rook(Pawn):
             elif board[x][col] != "p" and board[x][col].color == self.color:
                 break
 
+        self.valid_moves = valid_moves
         if square in valid_moves:
             board[self.start_pos[1]][self.start_pos[0]] = "p"
             board[square[1]][square[0]] = self
@@ -462,6 +508,7 @@ for x in chess_pieces:
 
  
 currently_clicked = None 
+turn = 0
 
 
 
@@ -479,14 +526,38 @@ while True:
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
-                if currently_clicked:
+                if currently_clicked and turn == 0 and currently_clicked.color == "white":
                     currently_clicked_center_rect = currently_clicked.get_center_rect()
                     for square in squares_rects:
-                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100)):
+                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100)) and currently_clicked.check_saved((square.x//100, square.y//100)):
                             currently_clicked.update_position((square.x+50, square.y+50))
+                            turn = 1
+                            for piece in chess_pieces:
+                                piece.valid_move(piece.start_pos)
+                            b_king.check_danger()
                             break
                         else:
                             currently_clicked.update_position(currently_clicked_start_pos)
+                    currently_clicked = None
+                    currently_clicked_center_rect = None
+                
+                if currently_clicked and turn == 1 and currently_clicked.color == "black":
+                    currently_clicked_center_rect = currently_clicked.get_center_rect()
+                    for square in squares_rects:
+                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100)) and currently_clicked.check_saved((square.x//100, square.y//100)):
+                            currently_clicked.update_position((square.x+50, square.y+50))
+                            turn = 0
+                            for piece in chess_pieces:
+                                piece.valid_move(piece.start_pos)
+                            w_king.check_danger()
+                            break
+                        else:
+                            currently_clicked.update_position(currently_clicked_start_pos)
+                    currently_clicked = None
+                    currently_clicked_center_rect = None
+                
+                elif currently_clicked:
+                    currently_clicked.update_position(currently_clicked_start_pos)
                     currently_clicked = None
                     currently_clicked_center_rect = None
         
