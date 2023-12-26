@@ -1,6 +1,7 @@
 import pygame 
 import sys 
 
+
 pygame.init()
 
 width = 800 
@@ -68,66 +69,133 @@ class Pawn():
             else:
                 return False
     
-    def is_capture(self, square):
+    def is_capture(self, square, board):
         if board[square[1]][square[0]] != "p" and board[square[1]][square[0]].color != self.color:
             return True
         else:
             return False
 
 
-    def valid_move(self, square):
+    def valid_move(self, square, board):
+        self.valid_moves = []
+        col = self.start_pos[0]
+        row = self.start_pos[1]
+
         if self.color == "white":
             direction = -1
         else:
             direction = 1
 
-        self.valid_moves = [(self.start_pos[0]+1, self.start_pos[1] + direction), (self.start_pos[0]-1, self.start_pos[1] + direction)]
-        if self.first_move() and not (self.is_capture(square)) and square == (self.start_pos[0], self.start_pos[1] + 2 * direction):
-                board[square[1]][square[0]] = self
-                board[self.start_pos[1]][self.start_pos[0]] = "p"
-                self.start_pos = square
-                return True 
+        # Check if the square in front of the pawn is empty
+        if board[row + direction][col] == "p":
+            self.valid_moves.append((col, row + direction))
 
-        elif square == (self.start_pos[0], self.start_pos[1] + direction) and not self.is_capture(square):
-                board[square[1]][square[0]] = self
-                board[self.start_pos[1]][self.start_pos[0]] = "p"
-                self.start_pos = square
-                return True 
+        # Check if the pawn can move two squares forward from its starting position
+        if self.first_move() and board[row + direction][col] == "p" and board[row + 2 * direction][col] == "p":
+            self.valid_moves.append((col, row + 2 * direction))
+
+        # Check for capturing moves
+        if col > 0 and board[row + direction][col - 1] != "p" and board[row + direction][col - 1].color != self.color:
+            self.valid_moves.append((col - 1, row + direction))
+
+        if col < 7 and board[row + direction][col + 1] != "p" and board[row + direction][col + 1].color != self.color:
+            self.valid_moves.append((col + 1, row + direction))
+
+        if square in self.valid_moves:
+            return True
         
-        elif self.is_capture(square) and (square == (self.start_pos[0]+1, self.start_pos[1] + direction) or square == (self.start_pos[0]-1, self.start_pos[1] + direction)):
-            board[self.start_pos[1]][self.start_pos[0]] = "p"
-            board[square[1]][square[0]] = self
-            remove_pieces(square)
-            self.start_pos  = square
-            return True 
+        return False
     
     def check_saved(self, square):
+        w_king.check_danger(board)
+        b_king.check_danger(board)
+
+        if self.color == "white" and w_king.threatening_piece:
+            if w_king.threatening_piece.start_pos == square and square in self.valid_moves:
+                return True 
+        if self.color == "black" and b_king.threatening_piece:
+            if b_king.threatening_piece.start_pos == square and square in self.valid_moves:
+                return True 
         original = self.start_pos
-        clone = board.copy()
+        clone = [row[:] for row in board]
         clone[self.start_pos[1]][self.start_pos[0]] = "p"
+        self.start_pos = square
         clone[square[1]][square[0]] = self
-        #remove_pieces(square)
-        self.start_pos  = square
+
         for piece in chess_pieces:
-            piece.valid_move(piece.start_pos)
-        
+            piece.valid_move(piece.start_pos, clone)
+
         if self.color == "white":
-            if w_king.check_danger():
+            if w_king.check_danger(clone):
                 self.start_pos = original
+                for piece in chess_pieces:
+                    piece.valid_move(piece.start_pos, board)
                 return False
-        
+
         elif self.color == "black":
-            if b_king.check_danger():
+            if b_king.check_danger(clone):
                 self.start_pos = original
-                return False 
+                for piece in chess_pieces:
+                    piece.valid_move(piece.start_pos, board)
+                return False
 
-        return True 
+        self.start_pos = original
+        for piece in chess_pieces:
+            piece.valid_move(piece.start_pos, board)
+        return True
 
+    def check_danger(self, board):
+        self.threatening_piece = None
+        col = self.start_pos[1]
+        row = self.start_pos[0]
+        for piece in chess_pieces:
+            if piece.valid_move((row, col), board) and piece.color != self.color:
+                self.threatening_piece = piece
+                return True 
         
+
+        return False 
+
+    def simulate_move(self, target_square, board):
+        # Create a temporary copy of the board
+        temp_board = [row[:] for row in board]
+
+        # Simulate the move on the temporary board
+        temp_board[self.start_pos[1]][self.start_pos[0]] = "p"
+        temp_board[target_square[1]][target_square[0]] = self
+
+        # Check if the player's king is still in check after the move
+        return not self.is_king_in_check(temp_board, self.color)
+
+    def make_move(self, target_square, board):
+        if self.simulate_move(target_square, board):
+            # Update the actual board if the move resolves the check
+            board[self.start_pos[1]][self.start_pos[0]] = "p"
+            board[target_square[1]][target_square[0]] = self
+            self.start_pos = target_square
+        else:
+            print("Invalid move! Your king is still in check. Make a different move.")
+
+    def is_king_in_check(self, board, color):
+        # Find the king's position
+        king_position = None
+        for row in board:
+            for piece in row:
+                if isinstance(piece, King) and piece.color == color:
+                    king_position = piece.start_pos
+                    break
+
+        # Check all opponent pieces and their valid moves to see if they threaten the king
+        for row in board:
+            for piece in row:
+                if isinstance(piece, Pawn) and piece.color != color:
+                    if king_position in piece.valid_moves:
+                        return True
+
+        return False
+
+    
             
-           
-
-
 
 
 class King(Pawn):
@@ -135,28 +203,35 @@ class King(Pawn):
         super().__init__(image, x, y, color)
         self.valid_moves = []
     
-    def valid_move(self, square):
+    def valid_move(self, square, board):
         col = self.start_pos[1]
         row = self.start_pos[0]
         valid_moves = [(row+1, col), (row-1, col), (row, col-1), (row, col+1), (row+1, col+1), (row+1, col-1), (row-1, col-1), (row-1, col+1)]
-        if square in valid_moves:
-            board[self.start_pos[1]][self.start_pos[0]] = "p"
-            board[square[1]][square[0]] = self
-            remove_pieces(square)
-            self.start_pos = square
+        if square in valid_moves and not self.is_capture(square, board):
             return True 
         else:
             return False 
     
-    def check_danger(self):
-        col = self.start_pos[1]
-        row = self.start_pos[0]
-        for piece in chess_pieces:
-            if (row, col) in piece.valid_moves and piece.color != self.color:
-                print("sjakk")
-                return True 
-        
-        return False 
+    
+    def check_mate(self):
+        if self.threatening_piece and self.check_danger(board):
+            # Check if any piece of the same color can save the king
+            for piece in chess_pieces:
+                if piece.color == self.color: 
+                    for move in piece.valid_moves:
+                        # Simulate the move and check if it saves the king
+                        if piece.check_saved(move):
+                            return False  # It's not checkmate if a move saves the king
+
+            # Check if the threatening piece can be captured
+            for piece in chess_pieces:
+                if piece.valid_move(self.threatening_piece.start_pos, board):
+                    return False  # It's not checkmate if the threatening piece can be captured
+
+            # If the threatening piece cannot be captured and no moves save the king, it's checkmate
+            return True
+
+        return False
 
 
 
@@ -165,10 +240,10 @@ class Queen(Pawn):
         super().__init__(image, x, y, color)
         self.valid_moves = []
     
-    def valid_move(self, square):
+    def valid_move(self, square, board):
         valid_moves = []
-        row = self.start_pos[1]
         col = self.start_pos[0]
+        row = self.start_pos[1]
 
         #left horizontal
         for x in range(col-1, -1, -1):
@@ -243,23 +318,19 @@ class Queen(Pawn):
                 break
         
         #right down diagonal
-        for y, x in enumerate(range(row+1, 8, 1), start = 1):
-            if col+y == 8:
+        for y, x in enumerate(range(col+1, 8, 1), start = 1):
+            if row+y == 8:
                 break
-            if board[x][col+y] == "p":
-                valid_moves.append((col+y, x))
-            elif board[x][col+y] != "p" and board[x][col+y].color != self.color:
-                valid_moves.append((col+y, x))
+            if board[row+y][x] == "p":
+                valid_moves.append((x, row+y))
+            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
+                valid_moves.append((x, row+y))
                 break
-            elif board[x][col+y] != "p" and board[x][col+y].color == self.color:
+            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
                 break
-        self.valid_moves = valid_moves
         
+        self.valid_moves = valid_moves
         if square in valid_moves:
-            board[self.start_pos[1]][self.start_pos[0]] = "p"
-            board[square[1]][square[0]] = self
-            remove_pieces(square)
-            self.start_pos = square
             return True 
         else:
             return False 
@@ -269,16 +340,23 @@ class Knight(Pawn):
         super().__init__(image, x, y, color)
         self.valid_moves = []
     
-    def valid_move(self, square):
+    def valid_move(self, square, board):
         col = self.start_pos[1]
         row = self.start_pos[0]
-        valid_moves = [(row+1, col+2), (row-1, col+2), (row+1, col-2), (row-1, col-2), (row-2, col+1), (row+2, col-1), (row-2, col-1), (row+2, col+1)]
+        valid_moves = []
+        knight_moves = [
+        (-2, -1), (-2, 1), (-1, -2), (-1, 2),
+        (1, -2), (1, 2), (2, -1), (2, 1)]
+
+        for move in knight_moves:
+            new_row = row + move[0]
+            new_col = col + move[1]
+
+            if 0 <= new_row < 8 and 0 <= new_col < 8:
+                valid_moves.append((new_row, new_col))
+        
         self.valid_moves = valid_moves
         if square in valid_moves:
-            board[self.start_pos[1]][self.start_pos[0]] = "p"
-            board[square[1]][square[0]] = self
-            remove_pieces(square)
-            self.start_pos = square
             return True 
 
         else:
@@ -289,7 +367,7 @@ class Bishop(Pawn):
         super().__init__(image, x, y, color)
         self.valid_moves = []
     
-    def valid_move(self, square):
+    def valid_move(self, square, board):
         valid_moves = []
         row = self.start_pos[1]
         col = self.start_pos[0]
@@ -327,23 +405,19 @@ class Bishop(Pawn):
                 break
         
         #right down diagonal
-        for y, x in enumerate(range(row+1, 8, 1), start = 1):
-            if col+y == 8:
+        for y, x in enumerate(range(col+1, 8, 1), start = 1):
+            if row+y == 8:
                 break
-            if board[x][col+y] == "p":
-                valid_moves.append((col+y, x))
-            elif board[x][col+y] != "p" and board[x][col+y].color != self.color:
-                valid_moves.append((col+y, x))
+            if board[row+y][x] == "p":
+                valid_moves.append((x, row+y))
+            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
+                valid_moves.append((x, row+y))
                 break
-            elif board[x][col+y] != "p" and board[x][col+y].color == self.color:
+            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
                 break
         
         self.valid_moves = valid_moves
         if square in valid_moves:
-            board[self.start_pos[1]][self.start_pos[0]] = "p"
-            board[square[1]][square[0]] = self
-            remove_pieces(square)
-            self.start_pos = square
             return True 
         else:
             return False 
@@ -354,7 +428,7 @@ class Rook(Pawn):
         super().__init__(image, x, y, color)
         self.valid_moves = []
 
-    def valid_move(self, square):
+    def valid_move(self, square, board):
         valid_moves = []
         row = self.start_pos[1]
         col = self.start_pos[0]
@@ -401,10 +475,6 @@ class Rook(Pawn):
 
         self.valid_moves = valid_moves
         if square in valid_moves:
-            board[self.start_pos[1]][self.start_pos[0]] = "p"
-            board[square[1]][square[0]] = self
-            remove_pieces(square)
-            self.start_pos = square
             return True 
         else:
             return False 
@@ -431,6 +501,7 @@ def draw_board():
                 screen.fill((238,238,210), myrect)
             
             y += 1
+
 
 
 
@@ -463,11 +534,11 @@ rook_white = pygame.transform.scale(rook_white, (80, 100))
 
 b_king = King(king_black, dif*4+50,50, "black")
 b_queen = Queen(queen_black, dif*3+50, 50, "black")
-b_knight = Knight(knight_black, dif*2+50, 50, "black")
+b_knight = Knight(knight_black, dif+50, 50, "black")
 b_rook = Rook(rook_black, 50, 50, "black")
-b_bishop = Bishop(bishop_black, dif+50, 50, "black")
-b_knight2 = Knight(knight_black, dif*5+50, 50, "black")
-b_bishop2 = Bishop(bishop_black, dif*6+50, 50, "black")
+b_bishop = Bishop(bishop_black, dif*2+50, 50, "black")
+b_knight2 = Knight(knight_black, dif*6+50, 50, "black")
+b_bishop2 = Bishop(bishop_black, dif*5+50, 50, "black")
 b_rook2 = Rook(rook_black, dif*7+50, 50, "black")
 b_pawn = Pawn(pawn_black, 50, dif+50, "black")
 b_pawn2 = Pawn(pawn_black, dif+50, dif+50, "black")
@@ -477,15 +548,15 @@ b_pawn5 = Pawn(pawn_black, dif*4+50, dif+50, "black")
 b_pawn6 = Pawn(pawn_black, dif*5+50, dif+50, "black")
 b_pawn7 = Pawn(pawn_black, dif*6+50, dif+50, "black")
 b_pawn8 = Pawn(pawn_black, dif*7+50, dif+50, "black")
-b_pawn9 = Pawn(pawn_black, dif*8+50, dif+50, "black")
+
 
 w_king = King(king_white, dif*4+50,dif*7+50, "white")
 w_queen = Queen(queen_white, dif*3+50, dif*7+50, "white")
-w_knight = Knight(knight_white, dif*2+50, dif*7+50, "white")
+w_knight = Knight(knight_white, dif+50, dif*7+50, "white")
 w_rook = Rook(rook_white, 50, dif*7+50, "white")
-w_bishop = Bishop(bishop_white, dif+50, dif*7+50, "white")
-w_knight2 = Knight(knight_white, dif*5+50, dif*7+50, "white")
-w_bishop2 = Bishop(bishop_white, dif*6+50, dif*7+50, "white")
+w_bishop = Bishop(bishop_white, dif*2+50, dif*7+50, "white")
+w_knight2 = Knight(knight_white, dif*6+50, dif*7+50, "white")
+w_bishop2 = Bishop(bishop_white, dif*5+50, dif*7+50, "white")
 w_rook2 = Rook(rook_white, dif*7+50, dif*7+50, "white")
 w_pawn = Pawn(pawn_white, 50, dif*6+50, "white")
 w_pawn2 = Pawn(pawn_white, dif+50, dif*6+50, "white")
@@ -495,7 +566,7 @@ w_pawn5 = Pawn(pawn_white, dif*4+50, dif*6+50, "white")
 w_pawn6 = Pawn(pawn_white, dif*5+50, dif*6+50, "white")
 w_pawn7 = Pawn(pawn_white, dif*6+50, dif*6+50, "white")
 w_pawn8 = Pawn(pawn_white, dif*7+50, dif*6+50, "white")
-w_pawn9 = Pawn(pawn_white, dif*8+50, dif*6+50, "white")
+
 
 
 chess_pieces = [b_king, b_queen, b_knight, b_rook, b_bishop, b_knight2, b_bishop2, b_rook2, b_pawn, b_pawn2, 
@@ -506,10 +577,14 @@ board = [['p' for _ in range(8)] for _ in range(8)]
 for x in chess_pieces:
     board[x.start_pos[1]][x.start_pos[0]] = x
 
+
  
 currently_clicked = None 
 turn = 0
 
+
+for piece in chess_pieces:
+    piece.valid_move(piece.start_pos, board)
 
 
 
@@ -529,12 +604,19 @@ while True:
                 if currently_clicked and turn == 0 and currently_clicked.color == "white":
                     currently_clicked_center_rect = currently_clicked.get_center_rect()
                     for square in squares_rects:
-                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100)) and currently_clicked.check_saved((square.x//100, square.y//100)):
+                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100), board) and currently_clicked.check_saved((square.x//100, square.y//100)):
+                            board[currently_clicked.start_pos[1]][currently_clicked.start_pos[0]] = "p"
+                            board[square.y//100][square.x//100] = currently_clicked
+                            remove_pieces((square.x//100, square.y//100))
+                            currently_clicked.start_pos = (square.x//100, square.y//100)
                             currently_clicked.update_position((square.x+50, square.y+50))
                             turn = 1
                             for piece in chess_pieces:
-                                piece.valid_move(piece.start_pos)
-                            b_king.check_danger()
+                                piece.valid_move(piece.start_pos, board)
+                            if b_king.check_danger(board) and not b_king.check_mate():
+                                print("check")
+                            if b_king.check_mate():
+                                print("checkmate")
                             break
                         else:
                             currently_clicked.update_position(currently_clicked_start_pos)
@@ -544,12 +626,19 @@ while True:
                 if currently_clicked and turn == 1 and currently_clicked.color == "black":
                     currently_clicked_center_rect = currently_clicked.get_center_rect()
                     for square in squares_rects:
-                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100)) and currently_clicked.check_saved((square.x//100, square.y//100)):
+                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100), board) and currently_clicked.check_saved((square.x//100, square.y//100)):
+                            board[currently_clicked.start_pos[1]][currently_clicked.start_pos[0]] = "p"
+                            board[square.y//100][square.x//100] = currently_clicked
+                            remove_pieces((square.x//100, square.y//100))
+                            currently_clicked.start_pos = (square.x//100, square.y//100)
                             currently_clicked.update_position((square.x+50, square.y+50))
                             turn = 0
                             for piece in chess_pieces:
-                                piece.valid_move(piece.start_pos)
-                            w_king.check_danger()
+                                piece.valid_move(piece.start_pos, board)
+                            if w_king.check_danger(board) and not w_king.check_mate():
+                                print("check")
+                            if w_king.check_mate():
+                                print("checkmate")
                             break
                         else:
                             currently_clicked.update_position(currently_clicked_start_pos)
@@ -560,6 +649,7 @@ while True:
                     currently_clicked.update_position(currently_clicked_start_pos)
                     currently_clicked = None
                     currently_clicked_center_rect = None
+                
         
         elif event.type == pygame.MOUSEMOTION:
             if currently_clicked:
