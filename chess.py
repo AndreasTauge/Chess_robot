@@ -3,12 +3,19 @@ import sys
 
 
 pygame.init()
+pygame.mixer.init()
+move = pygame.mixer.Sound("move-self.mp3")
+capture = pygame.mixer.Sound("capture.mp3")
+
 
 width = 800 
 height = 800 
 dif = width/8
 
 screen = pygame.display.set_mode((width, height))
+pygame.display.set_caption('Insane Crazy Hjemmelagd Sjakk')
+Icon = pygame.image.load("chess_icon.png")
+pygame.display.set_icon(Icon)
 
 squares_rects = []
 
@@ -20,6 +27,7 @@ def remove_pieces(location):
             x_row = x.start_pos[1]
             x_col = x.start_pos[0]
             chess_pieces.remove(x)
+            pygame.mixer.Sound.play(capture)
 
 
 
@@ -33,6 +41,7 @@ class Pawn():
         self.color = color
         self.start_pos = (int(x//100), int(y//100))
         self.valid_moves = []
+        
     
     def __repr__(self):
         return f"{self.__class__.__name__}"
@@ -71,6 +80,12 @@ class Pawn():
     
     def is_capture(self, square, board):
         if board[square[1]][square[0]] != "p" and board[square[1]][square[0]].color != self.color:
+            return True
+        else:
+            return False
+        
+    def is_empty(self, square, board):
+        if board[square[1]][square[0]] == "p":
             return True
         else:
             return False
@@ -116,6 +131,7 @@ class Pawn():
         if self.color == "black" and b_king.threatening_piece:
             if b_king.threatening_piece.start_pos == square and square in self.valid_moves:
                 return True 
+            
         original = self.start_pos
         clone = [row[:] for row in board]
         clone[self.start_pos[1]][self.start_pos[0]] = "p"
@@ -148,55 +164,49 @@ class Pawn():
         self.threatening_piece = None
         col = self.start_pos[1]
         row = self.start_pos[0]
+
         for piece in chess_pieces:
-            if piece.valid_move((row, col), board) and piece.color != self.color:
-                self.threatening_piece = piece
-                return True 
-        
-
-        return False 
-
-    def simulate_move(self, target_square, board):
-        # Create a temporary copy of the board
-        temp_board = [row[:] for row in board]
-
-        # Simulate the move on the temporary board
-        temp_board[self.start_pos[1]][self.start_pos[0]] = "p"
-        temp_board[target_square[1]][target_square[0]] = self
-
-        # Check if the player's king is still in check after the move
-        return not self.is_king_in_check(temp_board, self.color)
-
-    def make_move(self, target_square, board):
-        if self.simulate_move(target_square, board):
-            # Update the actual board if the move resolves the check
-            board[self.start_pos[1]][self.start_pos[0]] = "p"
-            board[target_square[1]][target_square[0]] = self
-            self.start_pos = target_square
-        else:
-            print("Invalid move! Your king is still in check. Make a different move.")
-
-    def is_king_in_check(self, board, color):
-        # Find the king's position
-        king_position = None
-        for row in board:
-            for piece in row:
-                if isinstance(piece, King) and piece.color == color:
-                    king_position = piece.start_pos
-                    break
-
-        # Check all opponent pieces and their valid moves to see if they threaten the king
-        for row in board:
-            for piece in row:
-                if isinstance(piece, Pawn) and piece.color != color:
-                    if king_position in piece.valid_moves:
-                        return True
+            if piece != self and piece.color != self.color and not isinstance(piece, King):
+                if piece.valid_move((row, col), board):
+                    self.threatening_piece = piece
+                    return True
 
         return False
+    
+    def check_saved_itself(self, square):
+        # Check if the king is in danger
+        w_king.check_danger(board)
+        b_king.check_danger(board)
+
+        if self.color == "white" and w_king.threatening_piece:
+            if w_king.threatening_piece.start_pos == square and square in self.valid_moves:
+                return True
+        if self.color == "black" and b_king.threatening_piece:
+            if b_king.threatening_piece.start_pos == square and square in self.valid_moves:
+                return True
+
+        # Simulate the moves to see if the king is saved
+        original = self.start_pos
+        for dx, dy in self.valid_moves:
+            if dx < 8 and dy < 8:
+                clone_board = [row[:] for row in board]
+                clone_board[self.start_pos[1]][self.start_pos[0]] = "p"
+                self.start_pos = (dx, dy)
+                clone_board[dy][dx] = self
+
+                # Check if the king is still in danger after the simulated move
+                w_king.check_danger(clone_board)
+                b_king.check_danger(clone_board)
+
+                if (self.color == "white" and not w_king.check_danger(clone_board)) or (self.color == "black" and not b_king.check_danger(clone_board)):
+                    self.start_pos = original
+                    return True
+
+        self.start_pos = original
+        return False
+
 
     
-            
-
 
 class King(Pawn):
     def __init__(self, image, x, y, color):
@@ -204,34 +214,69 @@ class King(Pawn):
         self.valid_moves = []
     
     def valid_move(self, square, board):
+        self.valid_moves = []
         col = self.start_pos[1]
         row = self.start_pos[0]
-        valid_moves = [(row+1, col), (row-1, col), (row, col-1), (row, col+1), (row+1, col+1), (row+1, col-1), (row-1, col-1), (row-1, col+1)]
-        if square in valid_moves and not self.is_capture(square, board):
+        directions = [
+            (-1, -1), (-1, 0), (-1, 1),
+            (0, -1),           (0, 1),
+            (1, -1), (1, 0),  (1, 1)
+        ]
+
+    # Check each direction and add valid moves within the board limits
+        original = self.start_pos
+        for dx, dy in directions:
+            new_x, new_y = row + dx, col + dy
+            
+            # Ensure the new position is within the bounds of the board (assuming an 8x8 board)
+            if 0 <= new_x <= 7 and 0 <= new_y <= 7:
+                temp_board = [row[:] for row in board]
+                temp_board[self.start_pos[1]][self.start_pos[0]] = "p"
+                temp_board[new_x][new_y] = self
+                self.start_pos = (new_x, new_y)
+
+                # Check if the King is safe after the move
+                self.check_danger(temp_board)
+                if not self.check_danger(temp_board):
+                    if self.is_empty((new_x, new_y), board) or self.is_capture((new_x, new_y), board):
+                        self.valid_moves.append((new_x, new_y))
+               
+        if square in self.valid_moves:
+            self.start_pos = original 
             return True 
         else:
+            self.start_pos = original 
             return False 
     
     
     def check_mate(self):
-        if self.threatening_piece and self.check_danger(board):
+        for move in self.valid_moves:
+            temp_board = [row[:] for row in board]
+            temp_board[self.start_pos[1]][self.start_pos[0]] = "p"
+            temp_board[move[1]][move[0]] = self
+
+            # If the move saves the king, it's not checkmate
+            #if not self.check_danger(temp_board):
+            ##    print("bruh 1")
+             #   return False
             # Check if any piece of the same color can save the king
-            for piece in chess_pieces:
-                if piece.color == self.color: 
-                    for move in piece.valid_moves:
+        for piece in chess_pieces:
+            if piece.color == self.color: 
+                for move in piece.valid_moves:
                         # Simulate the move and check if it saves the king
-                        if piece.check_saved(move):
-                            return False  # It's not checkmate if a move saves the king
+                    if piece.check_saved(move):
+                        return False  # It's not checkmate if a move saves the king
 
             # Check if the threatening piece can be captured
-            for piece in chess_pieces:
+        for piece in chess_pieces:
+            if self.threatening_piece:
                 if piece.valid_move(self.threatening_piece.start_pos, board):
+                        #print(piece, self.threatening_piece)
                     return False  # It's not checkmate if the threatening piece can be captured
 
-            # If the threatening piece cannot be captured and no moves save the king, it's checkmate
-            return True
-
-        return False
+                # If the threatening piece cannot be captured and no moves save the king, it's checkmate
+                return True
+        return True
 
 
 
@@ -374,6 +419,8 @@ class Bishop(Pawn):
 
         #left up diagonal
         for y, x in enumerate(range(col-1, -1, -1), start = 1):
+            if row-y > 7:
+                break
             if board[row-y][x] == "p":
                 valid_moves.append((x, row-y))
             elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
@@ -384,6 +431,8 @@ class Bishop(Pawn):
 
         #right up diagonal 
         for y, x in enumerate(range(col+1, 8, 1), start = 1):
+            if row-y > 7:
+                break
             if board[row-y][x] == "p":
                 valid_moves.append((x, row-y))
             elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
@@ -605,6 +654,7 @@ while True:
                     currently_clicked_center_rect = currently_clicked.get_center_rect()
                     for square in squares_rects:
                         if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100), board) and currently_clicked.check_saved((square.x//100, square.y//100)):
+                            pygame.mixer.Sound.play(move)
                             board[currently_clicked.start_pos[1]][currently_clicked.start_pos[0]] = "p"
                             board[square.y//100][square.x//100] = currently_clicked
                             remove_pieces((square.x//100, square.y//100))
@@ -627,6 +677,7 @@ while True:
                     currently_clicked_center_rect = currently_clicked.get_center_rect()
                     for square in squares_rects:
                         if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100), board) and currently_clicked.check_saved((square.x//100, square.y//100)):
+                            pygame.mixer.Sound.play(move)
                             board[currently_clicked.start_pos[1]][currently_clicked.start_pos[0]] = "p"
                             board[square.y//100][square.x//100] = currently_clicked
                             remove_pieces((square.x//100, square.y//100))
