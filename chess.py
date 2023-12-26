@@ -24,11 +24,44 @@ board = []
 def remove_pieces(location):
     for x in chess_pieces:
         if x.start_pos == location:
-            x_row = x.start_pos[1]
-            x_col = x.start_pos[0]
             chess_pieces.remove(x)
             pygame.mixer.Sound.play(capture)
 
+def handle_click_event(currently_clicked, turn):
+    if currently_clicked:
+        if ((currently_clicked.color == "white" and turn == 0) or (currently_clicked.color == "black" and turn == 1)):
+            currently_clicked_center_rect = currently_clicked.get_center_rect()
+            piece_moved = False
+            for square in squares_rects:
+                if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x // 100, square.y // 100), board) and currently_clicked.check_saved((square.x // 100, square.y // 100)):
+                    pygame.mixer.Sound.play(move)
+                    board[currently_clicked.start_pos[1]][currently_clicked.start_pos[0]] = "p"
+                    board[square.y // 100][square.x // 100] = currently_clicked
+                    remove_pieces((square.x // 100, square.y // 100))
+                    currently_clicked.start_pos = (square.x // 100, square.y // 100)
+                    currently_clicked.update_position((square.x + 50, square.y + 50))
+                    turn = 1 - turn  # Toggle turn between 0 and 1
+                    for piece in chess_pieces:
+                        piece.valid_move(piece.start_pos, board)
+
+                    if (b_king.check_danger(board) and not b_king.check_mate()) or (w_king.check_danger(board) and not w_king.check_mate()):
+                        print("check")
+                    if (b_king.check_mate()) or (w_king.check_mate()):
+                        print("checkmate")
+                    piece_moved = True
+                    break
+                else:
+                    currently_clicked.update_position(currently_clicked_start_pos)
+            if not piece_moved:
+                currently_clicked.update_position(currently_clicked_start_pos)
+            currently_clicked = None
+            currently_clicked_center_rect = None
+        else:
+            currently_clicked.update_position(currently_clicked_start_pos)
+            currently_clicked = None
+            currently_clicked_center_rect = None
+            
+    return currently_clicked, turn
 
 
 class Pawn():
@@ -172,38 +205,103 @@ class Pawn():
                     return True
 
         return False
+  
+    def diagonal_moves(self, square, board):
+        valid_moves = []
+        row = self.start_pos[1]
+        col = self.start_pos[0]
+        #left up diagonal
+        for y, x in enumerate(range(col-1, -1, -1), start = 1):
+            if board[row-y][x] == "p":
+                valid_moves.append((x, row-y))
+            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
+                valid_moves.append((x, row-y))
+                break
+            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
+                break
+
+        #right up diagonal 
+        for y, x in enumerate(range(col+1, 8, 1), start = 1):
+            if board[row-y][x] == "p":
+                valid_moves.append((x, row-y))
+            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
+                valid_moves.append((x, row-y))
+                break
+            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
+                break
+        
+        #left down diagonal 
+        for y, x in enumerate(range(col-1, -1, -1), start = 1):
+            if row+y == 8:
+                break
+            if board[row+y][x] == "p":
+                valid_moves.append((x, row+y))
+            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
+                valid_moves.append((x, row+y))
+                break
+            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
+                break
+        
+        #right down diagonal
+        for y, x in enumerate(range(col+1, 8, 1), start = 1):
+            if row+y == 8:
+                break
+            if board[row+y][x] == "p":
+                valid_moves.append((x, row+y))
+            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
+                valid_moves.append((x, row+y))
+                break
+            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
+                break
+        
+        return valid_moves
     
-    def check_saved_itself(self, square):
-        # Check if the king is in danger
-        w_king.check_danger(board)
-        b_king.check_danger(board)
+    def horizontal_moves(self, square, board):
+        valid_moves = []
+        col = self.start_pos[0]
+        row = self.start_pos[1]
 
-        if self.color == "white" and w_king.threatening_piece:
-            if w_king.threatening_piece.start_pos == square and square in self.valid_moves:
-                return True
-        if self.color == "black" and b_king.threatening_piece:
-            if b_king.threatening_piece.start_pos == square and square in self.valid_moves:
-                return True
+        #left horizontal
+        for x in range(col-1, -1, -1):
+            if board[row][x] == "p":
+                valid_moves.append((x, row))
+            elif board[row][x] != "p" and board[row][x].color != self.color:
+                valid_moves.append((x, row))
+                break
+            elif board[row][x] != "p" and board[row][x].color == self.color:
+                break
 
-        # Simulate the moves to see if the king is saved
-        original = self.start_pos
-        for dx, dy in self.valid_moves:
-            if dx < 8 and dy < 8:
-                clone_board = [row[:] for row in board]
-                clone_board[self.start_pos[1]][self.start_pos[0]] = "p"
-                self.start_pos = (dx, dy)
-                clone_board[dy][dx] = self
-
-                # Check if the king is still in danger after the simulated move
-                w_king.check_danger(clone_board)
-                b_king.check_danger(clone_board)
-
-                if (self.color == "white" and not w_king.check_danger(clone_board)) or (self.color == "black" and not b_king.check_danger(clone_board)):
-                    self.start_pos = original
-                    return True
-
-        self.start_pos = original
-        return False
+        #right horizontal 
+        for x in range(col+1, 8, 1):
+            if board[row][x] == "p":
+                valid_moves.append((x, row))
+            elif board[row][x] != "p" and board[row][x].color != self.color:
+                valid_moves.append((x, row))
+                break
+            elif board[row][x] != "p" and board[row][x].color == self.color:
+                break
+        
+        #check vertical up 
+        for x in range(row-1, -1, -1):
+            if board[x][col] == "p":
+                valid_moves.append((col, x))
+            elif board[x][col] != "p" and board[x][col].color != self.color:
+                valid_moves.append((col, x))
+                break
+            elif board[x][col] != "p" and board[x][col].color == self.color:
+                break
+        
+        #vertical down
+        for x in range(row+1, 8, 1):
+            if board[x][col] == "p":
+                valid_moves.append((col, x))
+            elif board[x][col] != "p" and board[x][col].color != self.color:
+                valid_moves.append((col, x))
+                break
+            elif board[x][col] != "p" and board[x][col].color == self.color:
+                break
+        
+        return valid_moves
 
 
     
@@ -255,10 +353,7 @@ class King(Pawn):
             temp_board[self.start_pos[1]][self.start_pos[0]] = "p"
             temp_board[move[1]][move[0]] = self
 
-            # If the move saves the king, it's not checkmate
-            #if not self.check_danger(temp_board):
-            ##    print("bruh 1")
-             #   return False
+
             # Check if any piece of the same color can save the king
         for piece in chess_pieces:
             if piece.color == self.color: 
@@ -271,7 +366,6 @@ class King(Pawn):
         for piece in chess_pieces:
             if self.threatening_piece:
                 if piece.valid_move(self.threatening_piece.start_pos, board):
-                        #print(piece, self.threatening_piece)
                     return False  # It's not checkmate if the threatening piece can be captured
 
                 # If the threatening piece cannot be captured and no moves save the king, it's checkmate
@@ -290,89 +384,8 @@ class Queen(Pawn):
         col = self.start_pos[0]
         row = self.start_pos[1]
 
-        #left horizontal
-        for x in range(col-1, -1, -1):
-            if board[row][x] == "p":
-                valid_moves.append((x, row))
-            elif board[row][x] != "p" and board[row][x].color != self.color:
-                valid_moves.append((x, row))
-                break
-            elif board[row][x] != "p" and board[row][x].color == self.color:
-                break
-
-        #right horizontal 
-        for x in range(col+1, 8, 1):
-            if board[row][x] == "p":
-                valid_moves.append((x, row))
-            elif board[row][x] != "p" and board[row][x].color != self.color:
-                valid_moves.append((x, row))
-                break
-            elif board[row][x] != "p" and board[row][x].color == self.color:
-                break
-        
-        #check vertical up 
-        for x in range(row-1, -1, -1):
-            if board[x][col] == "p":
-                valid_moves.append((col, x))
-            elif board[x][col] != "p" and board[x][col].color != self.color:
-                valid_moves.append((col, x))
-                break
-            elif board[x][col] != "p" and board[x][col].color == self.color:
-                break
-        
-        #vertical down
-        for x in range(row+1, 8, 1):
-            if board[x][col] == "p":
-                valid_moves.append((col, x))
-            elif board[x][col] != "p" and board[x][col].color != self.color:
-                valid_moves.append((col, x))
-                break
-            elif board[x][col] != "p" and board[x][col].color == self.color:
-                break
-
-        #left up diagonal
-        for y, x in enumerate(range(col-1, -1, -1), start = 1):
-            if board[row-y][x] == "p":
-                valid_moves.append((x, row-y))
-            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
-                valid_moves.append((x, row-y))
-                break
-            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
-                break
-
-        #right up diagonal 
-        for y, x in enumerate(range(col+1, 8, 1), start = 1):
-            if board[row-y][x] == "p":
-                valid_moves.append((x, row-y))
-            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
-                valid_moves.append((x, row-y))
-                break
-            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
-                break
-        
-        #left down diagonal 
-        for y, x in enumerate(range(col-1, -1, -1), start = 1):
-            if row+y == 8:
-                break
-            if board[row+y][x] == "p":
-                valid_moves.append((x, row+y))
-            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
-                valid_moves.append((x, row+y))
-                break
-            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
-                break
-        
-        #right down diagonal
-        for y, x in enumerate(range(col+1, 8, 1), start = 1):
-            if row+y == 8:
-                break
-            if board[row+y][x] == "p":
-                valid_moves.append((x, row+y))
-            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
-                valid_moves.append((x, row+y))
-                break
-            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
-                break
+        valid_moves.extend(self.diagonal_moves(square, board))
+        valid_moves.extend(self.horizontal_moves(square, board))
         
         self.valid_moves = valid_moves
         if square in valid_moves:
@@ -414,56 +427,8 @@ class Bishop(Pawn):
     
     def valid_move(self, square, board):
         valid_moves = []
-        row = self.start_pos[1]
-        col = self.start_pos[0]
 
-        #left up diagonal
-        for y, x in enumerate(range(col-1, -1, -1), start = 1):
-            if row-y > 7:
-                break
-            if board[row-y][x] == "p":
-                valid_moves.append((x, row-y))
-            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
-                valid_moves.append((x, row-y))
-                break
-            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
-                break
-
-        #right up diagonal 
-        for y, x in enumerate(range(col+1, 8, 1), start = 1):
-            if row-y > 7:
-                break
-            if board[row-y][x] == "p":
-                valid_moves.append((x, row-y))
-            elif board[row-y][x] != "p" and board[row-y][x].color != self.color:
-                valid_moves.append((x, row-y))
-                break
-            elif board[row-y][x] != "p" and board[row-y][x].color == self.color:
-                break
-        
-        #left down diagonal 
-        for y, x in enumerate(range(col-1, -1, -1), start = 1):
-            if row+y == 8:
-                break
-            if board[row+y][x] == "p":
-                valid_moves.append((x, row+y))
-            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
-                valid_moves.append((x, row+y))
-                break
-            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
-                break
-        
-        #right down diagonal
-        for y, x in enumerate(range(col+1, 8, 1), start = 1):
-            if row+y == 8:
-                break
-            if board[row+y][x] == "p":
-                valid_moves.append((x, row+y))
-            elif board[row+y][x] != "p" and board[row+y][x].color != self.color:
-                valid_moves.append((x, row+y))
-                break
-            elif board[row+y][x] != "p" and board[row+y][x].color == self.color:
-                break
+        valid_moves.extend(self.diagonal_moves(square, board))
         
         self.valid_moves = valid_moves
         if square in valid_moves:
@@ -479,48 +444,8 @@ class Rook(Pawn):
 
     def valid_move(self, square, board):
         valid_moves = []
-        row = self.start_pos[1]
-        col = self.start_pos[0]
 
-        #left horizontal
-        for x in range(col-1, -1, -1):
-            if board[row][x] == "p":
-                valid_moves.append((x, row))
-            elif board[row][x] != "p" and board[row][x].color != self.color:
-                valid_moves.append((x, row))
-                break
-            elif board[row][x] != "p" and board[row][x].color == self.color:
-                break
-
-        #right horizontal 
-        for x in range(col+1, 8, 1):
-            if board[row][x] == "p":
-                valid_moves.append((x, row))
-            elif board[row][x] != "p" and board[row][x].color != self.color:
-                valid_moves.append((x, row))
-                break
-            elif board[row][x] != "p" and board[row][x].color == self.color:
-                break
-        
-        #check vertical up 
-        for x in range(row-1, -1, -1):
-            if board[x][col] == "p":
-                valid_moves.append((col, x))
-            elif board[x][col] != "p" and board[x][col].color != self.color:
-                valid_moves.append((col, x))
-                break
-            elif board[x][col] != "p" and board[x][col].color == self.color:
-                break
-        
-        #vertical down
-        for x in range(row+1, 8, 1):
-            if board[x][col] == "p":
-                valid_moves.append((col, x))
-            elif board[x][col] != "p" and board[x][col].color != self.color:
-                valid_moves.append((col, x))
-                break
-            elif board[x][col] != "p" and board[x][col].color == self.color:
-                break
+        valid_moves.extend(self.horizontal_moves(square, board))
 
         self.valid_moves = valid_moves
         if square in valid_moves:
@@ -529,7 +454,6 @@ class Rook(Pawn):
             return False 
 
         
-
 
 def draw_board():
     j = 0
@@ -650,56 +574,7 @@ while True:
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
-                if currently_clicked and turn == 0 and currently_clicked.color == "white":
-                    currently_clicked_center_rect = currently_clicked.get_center_rect()
-                    for square in squares_rects:
-                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100), board) and currently_clicked.check_saved((square.x//100, square.y//100)):
-                            pygame.mixer.Sound.play(move)
-                            board[currently_clicked.start_pos[1]][currently_clicked.start_pos[0]] = "p"
-                            board[square.y//100][square.x//100] = currently_clicked
-                            remove_pieces((square.x//100, square.y//100))
-                            currently_clicked.start_pos = (square.x//100, square.y//100)
-                            currently_clicked.update_position((square.x+50, square.y+50))
-                            turn = 1
-                            for piece in chess_pieces:
-                                piece.valid_move(piece.start_pos, board)
-                            if b_king.check_danger(board) and not b_king.check_mate():
-                                print("check")
-                            if b_king.check_mate():
-                                print("checkmate")
-                            break
-                        else:
-                            currently_clicked.update_position(currently_clicked_start_pos)
-                    currently_clicked = None
-                    currently_clicked_center_rect = None
-                
-                if currently_clicked and turn == 1 and currently_clicked.color == "black":
-                    currently_clicked_center_rect = currently_clicked.get_center_rect()
-                    for square in squares_rects:
-                        if square.colliderect(currently_clicked_center_rect) and [x.square for x in chess_pieces].count(currently_clicked.square) == 1 and currently_clicked.valid_move((square.x//100, square.y//100), board) and currently_clicked.check_saved((square.x//100, square.y//100)):
-                            pygame.mixer.Sound.play(move)
-                            board[currently_clicked.start_pos[1]][currently_clicked.start_pos[0]] = "p"
-                            board[square.y//100][square.x//100] = currently_clicked
-                            remove_pieces((square.x//100, square.y//100))
-                            currently_clicked.start_pos = (square.x//100, square.y//100)
-                            currently_clicked.update_position((square.x+50, square.y+50))
-                            turn = 0
-                            for piece in chess_pieces:
-                                piece.valid_move(piece.start_pos, board)
-                            if w_king.check_danger(board) and not w_king.check_mate():
-                                print("check")
-                            if w_king.check_mate():
-                                print("checkmate")
-                            break
-                        else:
-                            currently_clicked.update_position(currently_clicked_start_pos)
-                    currently_clicked = None
-                    currently_clicked_center_rect = None
-                
-                elif currently_clicked:
-                    currently_clicked.update_position(currently_clicked_start_pos)
-                    currently_clicked = None
-                    currently_clicked_center_rect = None
+                currently_clicked, turn = handle_click_event(currently_clicked, turn)
                 
         
         elif event.type == pygame.MOUSEMOTION:
